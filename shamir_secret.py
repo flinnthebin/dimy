@@ -1,3 +1,5 @@
+# Class Implementation
+
 import random
 from sympy import symbols, eq, solve
 
