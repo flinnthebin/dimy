@@ -1,3 +1,5 @@
+from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+from cryptography.hazmat.primitives import serialization
 import time
 import uuid
 import shamirs
@@ -8,31 +10,28 @@ class Node:
     def __init__(self, udp_broadcast_ip='127.0.0.1', udp_broadcast_port=55000, mersenne_prime=(2**607) - 1):
         self.udp_broadcast_ip = udp_broadcast_ip
         self.udp_broadcast_port = udp_broadcast_port
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.mersenne_prime = mersenne_prime
         self.ephid_counter = self.generate_random_counter()
         self.n = 3
         self.k = 5
 
-        # UDP socket
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-    def int_encode(self, s):
-        return int.from_bytes(s.encode(), "big")
-
-    def string_encode(self, i):
-        return i.to_bytes((i.bit_length() + 7) // 8, "big").decode()
-
-    def generate_ephemeral_id(self):
-        alpha_key, bravo_key = str(uuid.uuid4()), str(uuid.uuid4())
-        return alpha_key + "-" + bravo_key
-
     def generate_random_counter(self):
         return secrets.randbelow(9000) + 1000
 
+    def generate_ephemeral_id(self):
+        private_key = X25519PrivateKey.generate()
+        public_key = private_key.public_key()
+        ephID = public_key.public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw
+        )
+        return ephID
+
     def share_ephemeral_id(self, ephemeral_id):
         return shamirs.shares(
-            self.int_encode(ephemeral_id), self.k, modulus=self.mersenne_prime, threshold=self.n
+            int.from_bytes(ephemeral_id, "big"), self.k, modulus=self.mersenne_prime, threshold=self.n
         )
 
     def drop_share(self):
