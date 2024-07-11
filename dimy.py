@@ -1,6 +1,7 @@
 import time
 import uuid
 import shamirs
+import secrets
 import socket
 
 class Node:
@@ -29,14 +30,20 @@ class Node:
             self.int_encode(ephemeral_id), 5, modulus=self.mersenne_prime, threshold=3
         )
 
+    def drop_share(self):
+        return secrets.SystemRandom().random() < 0.5
+
     def broadcast_shares(self):
         while True:
             ephemeral_id = self.generate_ephemeral_id()
             shares = self.share_ephemeral_id(ephemeral_id)
 
             for i, share in enumerate(shares, start=1):
-                message = f"EphID #{self.ephid_counter}: {share}"
-                self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
+                if not self.drop_share():
+                    message = f"EphID #{self.ephid_counter}: {share}"
+                    self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
+                else:
+                    print(f"Dropped EphID #{self.ephid_counter}: {share}")
                 time.sleep(3)
 
             self.ephid_counter += 1
@@ -48,3 +55,4 @@ if __name__ == "__main__":
 ################ REQUIRED LATER ####################################
 #   reconstructed_int = shamirs.interpolate(shares[:3])
 #   reconstructed_ephemeral_id = string_encode(reconstructed_int)
+
