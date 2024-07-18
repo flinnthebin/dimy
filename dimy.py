@@ -7,11 +7,12 @@ from cryptography.hazmat.primitives import serialization
 import shamirs
 
 class Node:
-    def __init__(self, udp_broadcast_ip='127.0.0.1', udp_broadcast_port=37020, mersenne_prime=(2**607) - 1):
+    def __init__(self, udp_broadcast_ip='192.168.1.255', udp_broadcast_port=37020, mersenne_prime=(2**607) - 1):
         self.udp_broadcast_ip = udp_broadcast_ip
-        self.udp_broadcast_port = self.find_free_port()
+        self.udp_broadcast_port = udp_broadcast_port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 0)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(('', self.udp_broadcast_port))
         self.mersenne_prime = mersenne_prime
         self.n = 3
@@ -27,13 +28,6 @@ class Node:
     @staticmethod
     def string_encode(i):
         return i.to_bytes((i.bit_length() + 7) // 8, "big").hex()
-
-    def find_free_port(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind(('', 0))
-        port = sock.getsockname()[1]
-        sock.close()
-        return port
 
     def generate_ephemeral_id(self):
         private_key = X25519PrivateKey.generate()
@@ -88,6 +82,7 @@ class Node:
             if ephid_str in self.reconstructed_ephids:
                 continue
             if ephid_str not in self.received_shares:
+                print(f"Message Received: {ephid_str}")
                 self.received_shares[ephid_str] = []
             self.received_shares[ephid_str].append(share)
             if len(self.received_shares[ephid_str]) >= self.n:
