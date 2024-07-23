@@ -85,7 +85,9 @@ class Node:
                 continue
             if ephemeral_str not in self.received_shares:
                 self.received_shares[ephemeral_str] = []
-            # TODO: COUNTER/MESSAGING PER MARKING GUIDE
+            if ephemeral_str not in self.generated_ephids:
+                share_count = len(self.received_shares[ephemeral_str]) + 1
+                print(f"\033[93m RECEIVED \033[0m EphID #{ephemeral_str[:10]} | Shares Received: {share_count}")
             self.received_shares[ephemeral_str].append((share, ephemeral_hash))
             if len(self.received_shares[ephemeral_str]) >= self.n:
                 self.reconstruct_ephemeral_id(ephemeral_str)
