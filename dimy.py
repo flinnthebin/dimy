@@ -76,6 +76,7 @@ class Node:
                     print(f"\033[91m DROPPED \033[0m EphID #{ephemeral_str[:10]}: {formatted_share} | Hash: {ephemeral_hash[:10]}")
                 time.sleep(3)
 
+    
     def listen_for_shares(self):
         while True:
             data, _ = self.sock.recvfrom(1024)
@@ -87,9 +88,10 @@ class Node:
                 self.received_shares[ephemeral_str] = []
             if ephemeral_str not in self.generated_ephids:
                 share_count = len(self.received_shares[ephemeral_str]) + 1
-                print(f"\033[93m RECEIVED \033[0m EphID #{ephemeral_str[:10]} | Shares Received: {share_count}")
+                print(f"\033[93m RECEIVED \033[0m EphID #{ephemeral_str[:10]} | Share COUNT: {share_count}")
             self.received_shares[ephemeral_str].append((share, ephemeral_hash))
-            if len(self.received_shares[ephemeral_str]) >= self.n:
+            if len(self.received_shares[ephemeral_str]) == self.n and ephemeral_str not in self.generated_ephids:
+                print(f"\033[96m ATTEMPTING RECONSTRUCTION \033[0m EphID #{ephemeral_str[:10]} with {self.n} shares")
                 self.reconstruct_ephemeral_id(ephemeral_str)
 
     def parse_message(self, message):
@@ -114,6 +116,7 @@ class Node:
         ephemeral_bytes = self.string_encode(interpolate)
         re_hash = hashlib.sha256(ephemeral_bytes).hexdigest()
         recv_hash = shares_hashes[0][1]
+        print(f"\033[96m VERIFYING RECONSTRUCTION \033[0m EphID #{ephemeral_str[:10]} | Reconstructed Hash: {re_hash[:10]} | Received Hash: {recv_hash[:10]}")
         if re_hash == recv_hash:
             print(f"\033[94m RECONSTRUCTED \033[0m EphID #{ephemeral_str[:10]}: {ephemeral_bytes.hex()} | Hash: {recv_hash[:10]}")
             self.reconstructed_ephids.add(ephemeral_str)
@@ -124,7 +127,7 @@ class Node:
             x_at = secrets.token_bytes(32)
             enc_id = int.from_bytes(shared_key, "big") ^ int.from_bytes(x_at, "big")
             enc_id_hex = enc_id.to_bytes(32, "big").hex()
-            print(f"\033[94m COMPUTED \033[0m EncID: {enc_id_hex}")
+            print(f"\033[96m COMPUTED \033[0m EncID: {enc_id_hex}")
         else:
             print(f"\033[91m FAILED \033[0m EphID #{ephemeral_str[:10]} | \033[91m Hash Mismatch \033[0m")
 
