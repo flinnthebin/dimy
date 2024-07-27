@@ -45,7 +45,7 @@ class Node:
             int.from_bytes(ephemeral_id, "big"), self.k, modulus=self.mersenne_prime, threshold=self.n
         )
 
-    def format_share(self, share, num_chars=3):
+    def format_share(self, share, num_chars=10):
         share_idx = str(share.index)[:num_chars]
         share_val = str(share.value)[:num_chars]
         return f"share({share_idx}, {share_val})"
@@ -56,6 +56,19 @@ class Node:
 
     def drop_share(self):
         return secrets.SystemRandom().random() < 0.5
+
+    def parse_share(self, share_str):
+        share_str = share_str.strip("share()")
+        x, y, modulus = map(int, share_str.split(", "))
+        return shamirs.share(x, y, modulus)
+
+    def parse_message(self, message):
+        parts = message.split("| Hash: ")
+        ephemeral_str, share_str = parts[0].split(": ")
+        ephemeral_str = ephemeral_str.split("#")[1]
+        share = self.parse_share(share_str.strip())
+        ephemeral_hash = parts[1].strip()
+        return ephemeral_str, share, ephemeral_hash
 
     def broadcast_shares(self):
         while True:
@@ -75,7 +88,6 @@ class Node:
                 else:
                     print(f"\033[91m DROPPED \033[0m EphID #{ephemeral_str[:10]}: {formatted_share} | Hash: {ephemeral_hash[:10]}")
                 time.sleep(3)
-
     
     def listen_for_shares(self):
         while True:
@@ -90,24 +102,12 @@ class Node:
                 share_count = len(self.received_shares[ephemeral_str]) + 1
                 print(f"\033[93m RECEIVED \033[0m EphID #{ephemeral_str[:10]} | Shares Received: {share_count}")
             self.received_shares[ephemeral_str].append((share, ephemeral_hash))
-            if len(self.received_shares[ephemeral_str]) == self.n and ephemeral_str not in self.generated_ephids:
+            if len(self.received_shares[ephemeral_str]) == self.n:
                 print(f"\033[96m ATTEMPTING RECONSTRUCTION \033[0m EphID #{ephemeral_str[:10]} with {self.n} shares")
-                self.reconstruct_ephemeral_id(ephemeral_str)
+                self.reconstruction(ephemeral_str)
 
-    def parse_message(self, message):
-        parts = message.split("| Hash: ")
-        ephemeral_str, share_str = parts[0].split(": ")
-        ephemeral_str = ephemeral_str.split("#")[1]
-        share = self.parse_share(share_str.strip())
-        ephemeral_hash = parts[1].strip()
-        return ephemeral_str, share, ephemeral_hash
-
-    def parse_share(self, share_str):
-        share_str = share_str.strip("share()")
-        x, y, modulus = map(int, share_str.split(", "))
-        return shamirs.share(x, y, modulus)
-
-    def reconstruct_ephemeral_id(self, ephemeral_str):
+    def reconstruction(self, ephemeral_str):
+        # Reconstruct Ephemeral ID
         if ephemeral_str in self.generated_ephids:
             return
         shares_hashes = self.received_shares[ephemeral_str]
