@@ -3,16 +3,18 @@ import threading
 import socket
 import secrets
 import time
+import shamirs
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives import serialization
-import shamirs
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 
 class Node:
     def __init__(self, udp_broadcast_ip='192.168.0.255', udp_broadcast_port=37020, mersenne_prime=(2**607) - 1):
         self.mersenne_prime = mersenne_prime
         self.n = 3
         self.k = 5
-        self.private_key = X25519PrivateKey.generate()
         self.udp_broadcast_ip = udp_broadcast_ip
         self.udp_broadcast_port = udp_broadcast_port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -25,13 +27,21 @@ class Node:
         self.reconstructed_ephids = set()
 
     @staticmethod
-    def int_encode(s):
-        return int.from_bytes(s.encode(), "big")
-
-    @staticmethod
     def string_encode(i):
         return i.to_bytes((i.bit_length() + 7) // 8, "big")
 
+    @staticmethod
+    def derive_private_key(ephemeral_id):
+        hkdf = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=b'ephemeral key',
+            backend=default_backend()
+        )
+        private_key_bytes = hkdf.derive(ephemeral_id)
+        return X25519PrivateKey.from_private_bytes(private_key_bytes)
+ 
     def generate_ephemeral_id(self):
         private_key = X25519PrivateKey.generate()
         public_key = private_key.public_key()
@@ -40,7 +50,7 @@ class Node:
             format=serialization.PublicFormat.Raw
         )
         return ephID, private_key
-
+    
     def share_ephemeral_id(self, ephemeral_id):
         return shamirs.shares(
             int.from_bytes(ephemeral_id, "big"), self.k, modulus=self.mersenne_prime, threshold=self.n
@@ -84,10 +94,10 @@ class Node:
                 if not self.drop_share():
                     message = f"{share} | Hash: {ephemeral_hash}"
                     self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
-                    print(f"\033[92m BROADCAST \033[0m Share: {formatted_share} | Hash: {ephemeral_hash[:10]}")
+                    print(f"\033[92m BROADCAST \033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
                 else:
-                    print(f"\033[91m DROPPED \033[0m Share: {formatted_share} | Hash: {ephemeral_hash[:10]}")
-                time.sleep(3)
+                    print(f"\033[91m DROPPED \033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
+                time.sleep(2)
     
     def listen_for_shares(self):
         while True:
@@ -117,13 +127,16 @@ class Node:
             print(f"\033[94m RECONSTRUCTED \033[0m EphID: {ephemeral_bytes.hex()[:10]} | Hash: {ephemeral_hash[:10]}")
             self.reconstructed_ephids.add(ephemeral_hash)
             # Compute EncID after reconstructing EphID
-            ephID_bytes = self.string_encode(interpolate)
-            ephID_public_key = X25519PublicKey.from_public_bytes(ephID_bytes)
-            shared_key = self.private_key.exchange(ephID_public_key)
-            x_at = secrets.token_bytes(32)
-            enc_id = int.from_bytes(shared_key, "big") ^ int.from_bytes(x_at, "big")
-            enc_id_hex = enc_id.to_bytes(32, "big").hex()
-            print(f"\033[95m COMPUTED \033[0m EncID: {enc_id_hex[:10]}")
+            try:
+                ephID_public_key = X25519PublicKey.from_public_bytes(ephemeral_bytes)
+                derived_private_key = self.derive_private_key(ephemeral_bytes)
+                shared_key = derived_private_key.exchange(ephID_public_key)
+                # Derive EncID from the shared key
+                enc_id = hashlib.sha256(shared_key).digest()
+                enc_id_hex = enc_id.hex()
+                print(f"\033[95m COMPUTED \033[0m EncID: {enc_id_hex[:10]}")
+            except Exception as e:
+                print(f"\033[91m ERROR \033[0m Failed to compute EncID: {str(e)}")
         else:
             print(f"\033[91m FAILED \033[0m Hash: {ephemeral_hash[:10]} | \033[91m Hash Mismatch \033[0m")
 
