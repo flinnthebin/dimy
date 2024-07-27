@@ -84,9 +84,9 @@ class Node:
                 if not self.drop_share():
                     message = f"{share} | Hash: {ephemeral_hash}"
                     self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
-                    print(f"\033[92m BROADCAST \033[0m EphID #{ephemeral_str[:10]}: {formatted_share} | Hash: {ephemeral_hash[:10]}")
+                    print(f"\033[92m BROADCAST \033[0m Share: {formatted_share} | Hash: {ephemeral_hash[:10]}")
                 else:
-                    print(f"\033[91m DROPPED \033[0m EphID #{ephemeral_str[:10]}: {formatted_share} | Hash: {ephemeral_hash[:10]}")
+                    print(f"\033[91m DROPPED \033[0m Share: {formatted_share} | Hash: {ephemeral_hash[:10]}")
                 time.sleep(3)
     
     def listen_for_shares(self):
@@ -114,7 +114,7 @@ class Node:
         re_hash = hashlib.sha256(ephemeral_bytes).hexdigest()
         print(f"\033[96m VERIFYING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} | Reconstructed Hash: {re_hash[:10]}")
         if re_hash == ephemeral_hash:
-            print(f"\033[94m RECONSTRUCTED \033[0m EphID: {ephemeral_bytes.hex()} | Hash: {ephemeral_hash[:10]}")
+            print(f"\033[94m RECONSTRUCTED \033[0m EphID: {ephemeral_bytes.hex()[:10]} | Hash: {ephemeral_hash[:10]}")
             self.reconstructed_ephids.add(ephemeral_hash)
             # Compute EncID after reconstructing EphID
             ephID_bytes = self.string_encode(interpolate)
