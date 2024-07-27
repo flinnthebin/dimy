@@ -21,6 +21,7 @@ class Node:
         self.sock.bind(('', self.udp_broadcast_port))
         self.received_shares = {}
         self.generated_ephids = set()
+        self.generated_hashes = set()
         self.reconstructed_ephids = set()
 
     @staticmethod
@@ -63,26 +64,25 @@ class Node:
         return shamirs.share(x, y, modulus)
 
     def parse_message(self, message):
-        parts = message.split("| Hash: ")
-        ephemeral_str, share_str = parts[0].split(": ")
-        ephemeral_str = ephemeral_str.split("#")[1]
+        share_str, ephemeral_hash = message.split("| Hash: ")
         share = self.parse_share(share_str.strip())
-        ephemeral_hash = parts[1].strip()
-        return ephemeral_str, share, ephemeral_hash
+        ephemeral_hash = ephemeral_hash.strip()
+        return share, ephemeral_hash
 
     def broadcast_shares(self):
         while True:
             ephemeral_id, private_key = self.generate_ephemeral_id()
             ephemeral_str = ephemeral_id.hex()
             self.generated_ephids.add(ephemeral_str)
+            ephemeral_hash = hashlib.sha256(ephemeral_id).hexdigest()
+            self.generated_hashes.add(ephemeral_hash)
             print(f"\033[97m GENERATED EphID \033[0m #{ephemeral_str[:10]}")
             shares = self.share_ephemeral_id(ephemeral_id)
             print(self.format_shares(shares))
-            ephemeral_hash = hashlib.sha256(ephemeral_id).hexdigest()
             for i, share in enumerate(shares, start=1):
                 formatted_share = self.format_share(share)
                 if not self.drop_share():
-                    message = f"EphID #{ephemeral_str}: {share} | Hash: {ephemeral_hash}"
+                    message = f"{share} | Hash: {ephemeral_hash}"
                     self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
                     print(f"\033[92m BROADCAST \033[0m EphID #{ephemeral_str[:10]}: {formatted_share} | Hash: {ephemeral_hash[:10]}")
                 else:
@@ -93,33 +93,29 @@ class Node:
         while True:
             data, _ = self.sock.recvfrom(1024)
             message = data.decode()
-            ephemeral_str, share, ephemeral_hash = self.parse_message(message)
-            if ephemeral_str in self.reconstructed_ephids:
+            share, ephemeral_hash = self.parse_message(message)
+            if ephemeral_hash in self.reconstructed_ephids:
                 continue
-            if ephemeral_str not in self.received_shares:
-                self.received_shares[ephemeral_str] = []
-            if ephemeral_str not in self.generated_ephids:
-                share_count = len(self.received_shares[ephemeral_str]) + 1
-                print(f"\033[93m RECEIVED \033[0m EphID #{ephemeral_str[:10]} | Shares Received: {share_count}")
-            self.received_shares[ephemeral_str].append((share, ephemeral_hash))
-            if len(self.received_shares[ephemeral_str]) == self.n:
-                print(f"\033[96m ATTEMPTING RECONSTRUCTION \033[0m EphID #{ephemeral_str[:10]} with {self.n} shares")
-                self.reconstruction(ephemeral_str)
+            if ephemeral_hash not in self.received_shares:
+                self.received_shares[ephemeral_hash] = []
+            self.received_shares[ephemeral_hash].append(share)
+            if ephemeral_hash not in self.generated_hashes:
+                share_count = len(self.received_shares[ephemeral_hash])
+                print(f"\033[93m RECEIVED \033[0m Hash: {ephemeral_hash[:10]} | Shares Received: {share_count}")
+            if len(self.received_shares[ephemeral_hash]) == self.n:
+                print(f"\033[96m ATTEMPTING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} with {self.n} shares")
+                self.reconstruction(ephemeral_hash)
 
-    def reconstruction(self, ephemeral_str):
+    def reconstruction(self, ephemeral_hash):
         # Reconstruct Ephemeral ID
-        if ephemeral_str in self.generated_ephids:
-            return
-        shares_hashes = self.received_shares[ephemeral_str]
-        shares = [share for share, _ in shares_hashes]
+        shares = self.received_shares[ephemeral_hash]
         interpolate = shamirs.interpolate(shares, threshold=self.n)
         ephemeral_bytes = self.string_encode(interpolate)
         re_hash = hashlib.sha256(ephemeral_bytes).hexdigest()
-        recv_hash = shares_hashes[0][1]
-        print(f"\033[96m VERIFYING RECONSTRUCTION \033[0m EphID #{ephemeral_str[:10]} | Reconstructed Hash: {re_hash[:10]} | Received Hash: {recv_hash[:10]}")
-        if re_hash == recv_hash:
-            print(f"\033[94m RECONSTRUCTED \033[0m EphID #{ephemeral_str[:10]}: {ephemeral_bytes.hex()} | Hash: {recv_hash[:10]}")
-            self.reconstructed_ephids.add(ephemeral_str)
+        print(f"\033[96m VERIFYING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} | Reconstructed Hash: {re_hash[:10]}")
+        if re_hash == ephemeral_hash:
+            print(f"\033[94m RECONSTRUCTED \033[0m EphID: {ephemeral_bytes.hex()} | Hash: {ephemeral_hash[:10]}")
+            self.reconstructed_ephids.add(ephemeral_hash)
             # Compute EncID after reconstructing EphID
             ephID_bytes = self.string_encode(interpolate)
             ephID_public_key = X25519PublicKey.from_public_bytes(ephID_bytes)
@@ -127,9 +123,9 @@ class Node:
             x_at = secrets.token_bytes(32)
             enc_id = int.from_bytes(shared_key, "big") ^ int.from_bytes(x_at, "big")
             enc_id_hex = enc_id.to_bytes(32, "big").hex()
-            print(f"\033[96m COMPUTED \033[0m EncID: {enc_id_hex}")
+            print(f"\033[95m COMPUTED \033[0m EncID: {enc_id_hex[:10]}")
         else:
-            print(f"\033[91m FAILED \033[0m EphID #{ephemeral_str[:10]} | \033[91m Hash Mismatch \033[0m")
+            print(f"\033[91m FAILED \033[0m Hash: {ephemeral_hash[:10]} | \033[91m Hash Mismatch \033[0m")
 
 if __name__ == "__main__":
     node = Node()
