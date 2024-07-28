@@ -12,7 +12,7 @@ class BackendServer:
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
         self.received_qbf = set()
-        print(f"\033[92m SERVER AWAIT \033[0m {self.host}:{self.port}")
+        print(f"\033[92mSERVER AWAIT\033[0m {self.host}:{self.port}")
 
     def handle_client(self, client_socket):
         ts_socket = ThreadSafeSocket(client_socket, timeout=10)

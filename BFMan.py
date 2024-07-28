@@ -48,7 +48,6 @@ class BFMan:
                     if dbf.bit_array[i]:
                         self.qbf.bit_array[i] = 1
             self.dbfs.clear()
-            self.dbfs.pad_filter()
             self.qbf_created = True
             self.qbf_start_time = current_time
             print(f"\033[36mQBF CREATED\033[0m")
@@ -69,6 +68,5 @@ class BFMan:
         for i in range(self.current_dbf.size):
             if self.current_dbf.bit_array[i]:
                 cbf.bit_array[i] = 1
-        cbf.pad_filter()
         print(f"\033[36mCBF CREATED\033[0m")
         return cbf
