@@ -16,8 +16,8 @@ Bloom Filter Manager
 ## Dimy
 
 Did I Meet You Protocol Node
-    - Generates an Ephemeral ID using the elliptical curve Diffie-Hellman key exchange algorithm  
-    - Splits the Ephemeral ID into shares, distributes the shares + hash of Ephemeral ID over UDP using shamirs secret sharing  
+- Generates an Ephemeral ID using the elliptical curve Diffie-Hellman key exchange algorithm  
+- Splits the Ephemeral ID into shares, distributes the shares + hash of Ephemeral ID over UDP using shamirs secret sharing  
     - Receives shares from other nodes  
     - Reconstructs shares if num_shares > req_shares to reconstruct a secret  
     - Hashes the ephemeral ID to confirm the received ID hashes to the same hash that was received  
