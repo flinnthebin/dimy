@@ -9,7 +9,7 @@ class BFMan:
         self.dbfs = deque()
         self.current_dbf = BloomFilter()
         self.start_time = time.time()
-        self.qbf_start_time = self.start_time 
+        self.qbf_start_time = self.start_time
         self.qbf = BloomFilter()
         self.dbf_counter = 1
         self.qbf_created = False

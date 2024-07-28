@@ -1,3 +1,95 @@
+from Bloom import BloomFilter
+import time
+from collections import deque
+
+class BFMan:
+    def __init__(self, dbf_duration=90, max_dbfs=2):
+        self.dbf_duration = dbf_duration
+        self.max_dbfs = max_dbfs
+        self.dbfs = deque()
+        self.current_dbf = BloomFilter()
+        self.start_time = time.time()
+        self.qbf_start_time = self.start_time 
+        self.qbf = BloomFilter()
+        self.dbf_counter = 1
+        self.qbf_created = False
+        print(f"\033[36m DBF CREATED \033[0m (1 of {self.max_dbfs})")
+
+    def add_enc_id(self, enc_id):
+        current_time = time.time()
+        if current_time - self.start_time >= self.dbf_duration:
+            self._rotate_dbf()
+        self.current_dbf.add(enc_id)
+
+    def _rotate_dbf(self):
+        if len(self.dbfs) >= self.max_dbfs:
+            self.dbfs.popleft()
+        self.dbfs.append(self.current_dbf)
+        self.current_dbf = BloomFilter()
+        self.dbf_counter += 1
+        if self.dbf_counter > self.max_dbfs:
+            self.dbf_counter = 1
+        print(f"\033[36m DBF CREATED \033[0m ({self.dbf_counter} of {self.max_dbfs})")
+        self.start_time = time.time()
+
+    def contains(self, enc_id):
+        for dbf in self.dbfs:
+            if enc_id in dbf:
+                return True
+        return enc_id in self.current_dbf or enc_id in self.qbf
+
+    def query_filter(self):
+        current_time = time.time()
+        if current_time - self.qbf_start_time >= self.dbf_duration * self.max_dbfs:
+            print(f"\033[93m CREATING QBF \033[0m")
+            self.qbf = BloomFilter()
+            for dbf in self.dbfs:
+                for i in range(dbf.size):
+                    if dbf.bit_array[i]:
+                        self.qbf.bit_array[i] = 1
+            self.dbfs.clear()
+            self.qbf_created = True
+            self.qbf_start_time = current_time
+            print(f"\033[36m QBF CREATED \033[0m")
+
+    def is_qbf_created(self):
+        if self.qbf_created:
+            self.qbf_created = False
+            return True
+        return False
+
+    def contact_filter(self):
+        print(f"\033[93m CREATING CBF \033[0m")
+        cbf = BloomFilter()
+        for dbf in self.dbfs:
+            for i in range(dbf.size):
+                if dbf.bit_array[i]:
+                    cbf.bit_array[i] = 1
+        for i in range(self.current_dbf.size):
+            if self.current_dbf.bit_array[i]:
+                cbf.bit_array[i] = 1
+        print(f"\033[36m CBF CREATED \033[0m")
+        return cbf
+import bitarray
+import hashlib
+
+class BloomFilter:
+    def __init__(self, size=100 * 1024 * 8, num_hashes=3):
+        self.size = size
+        self.num_hashes = num_hashes
+        self.bit_array = bitarray.bitarray(size)
+        self.bit_array.setall(0)
+
+    def _hashes(self, enc_id):
+        enc_id = enc_id.encode('utf-8')
+        return [int(hashlib.sha256(enc_id + str(i).encode('utf-8')).hexdigest(), 16) % self.size for i in range(self.num_hashes)]
+
+    def add(self, enc_id):
+        for hash in self._hashes(enc_id):
+            self.bit_array[hash] = 1
+
+    def __contains__(self, enc_id):
+        return all(self.bit_array[hash] for hash in self._hashes(enc_id))
 from BFMan import BFMan
 from ThreadSafeSocket import ThreadSafeSocket
 import hashlib
@@ -152,7 +244,6 @@ class Node:
 
     def send_qbf_to_backend(self, qbf):
         try:
-            qbf.pad_filter()
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 status = ts_socket.send(qbf)
@@ -165,7 +256,6 @@ class Node:
 
     def send_cbf_to_backend(self, cbf):
         try:
-            cbf.pad_filter()
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 status = ts_socket.send(cbf)
@@ -203,3 +293,103 @@ if __name__ == "__main__":
     query_filter = threading.Thread(target=node.query_filter)
     query_filter.start()
     node.listen_for_shares()
+import bitarray
+import socket
+import threading
+from ThreadSafeSocket import ThreadSafeSocket
+
+class BackendServer:
+    def __init__(self, host='192.168.0.157', port=55000):
+        self.host = host
+        self.port = port
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(5)
+        self.received_qbf = set()
+        print(f"\033[92m SERVER AWAIT \033[0m {self.host}:{self.port}")
+
+    def handle_client(self, client_socket):
+        ts_socket = ThreadSafeSocket(client_socket, timeout=10)
+        status, data = ts_socket.recv()
+        if status == ThreadSafeSocket.SocketStatus.OK:
+            if len(data) == 102400:
+                print(f"\033[92m QBF RECEIVED \033[0m Length: {len(data)} bytes")
+                self.received_qbf.add(data)
+            else:
+                print(f"\033[92m CBF RECEIVED \033[0m Length: {len(data)} bytes")
+                matched = self.check_cbf(data)
+                response = "MATCHED" if matched else "NOT MATCHED"
+                ts_socket.send(response.encode())
+        else:
+            print(f"\033[91m RECEIVE FAILED \033[0m Status: {status}")
+        client_socket.close()
+
+    def check_cbf(self, cbf):
+        cbf_bits = bitarray.bitarray()
+        cbf_bits.frombytes(cbf)
+        cbf_count = cbf_bits.count()
+
+        for qbf in self.received_qbf:
+            qbf_bits = bitarray.bitarray()
+            qbf_bits.frombytes(qbf)
+            qbf_count = qbf_bits.count()
+
+            matching_bits = (cbf_bits & qbf_bits).count()
+
+            match_percentage = (matching_bits / cbf_count) * 100
+
+            if match_percentage >= 50:
+                return True
+
+        return False
+
+    def start(self):
+        while True:
+            client_socket, addr = self.server_socket.accept()
+            print(f"Connection from {addr}")
+            client_thread = threading.Thread(target=self.handle_client, args=(client_socket,))
+            client_thread.start()
+
+if __name__ == "__main__":
+    backend_server = BackendServer()
+    backend_server.start()
+import select
+import socket
+from threading import RLock
+from enum import IntEnum
+
+class ThreadSafeSocket:
+    class SocketStatus(IntEnum):
+        DISCONNECTED = 0
+        OK = 1
+        TIMEOUT = 2
+
+    def __init__(self, socket, timeout):
+        self.socket = socket
+        self.socket.setblocking(0)
+        self.recvlock = RLock()
+        self.sendlock = RLock()
+        self.timeout = timeout
+
+    def send(self, bloom_filter):
+        with self.sendlock:
+            _, write_ready, _ = select.select([], [self.socket], [], self.timeout)
+            if not write_ready:
+                return self.SocketStatus.TIMEOUT
+            self.socket.sendall(bloom_filter)
+            return self.SocketStatus.OK
+
+    def recv(self, bloom_size=100 * 1024 * 8):
+        result = b''
+        with self.recvlock:
+            read_ready, _, _ = select.select([self.socket], [], [], self.timeout)
+            if not read_ready:
+                return (self.SocketStatus.TIMEOUT, b'')
+            result = self.socket.recv(bloom_size)
+        if not result:
+            return (self.SocketStatus.DISCONNECTED, b'')
+        return (self.SocketStatus.OK, result)
+    
+    def close(self):
+            self.socket.close()
