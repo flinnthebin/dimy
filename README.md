@@ -3,7 +3,7 @@ did i meet you tracing protocol.
 
 ![DIMY Protocol](./demo.png)
 
-![MiTM Attack (.atkdemo.png)
+![MiTM Attack (./atkdemo.png)
 
 ## Bloom
 
