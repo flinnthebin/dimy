@@ -45,4 +45,9 @@ ThreadSafe TCP socket, enabling sequential processing of data with no loss due c
 
 ## Attacker
 
-TBC  
+MiTM Attacker
+- uses a Denial of Service Attack to disrupt the DimyServer
+- Binds to the same IP/Port as the Backend
+- Intercepts all CBFs/QBFs and returns a positive match in all cases
+- Forces nodes into isolation
+- Can be hardened against using a checksum to validate Server/Node interactions
