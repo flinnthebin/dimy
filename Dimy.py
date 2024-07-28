@@ -41,14 +41,14 @@ class Node:
 
     @staticmethod
     def derive_private_key(ephemeral_id):
-        hkdf = HKDF(
+        diffie_hellman = HKDF(
             algorithm=hashes.SHA256(),
             length=32,
             salt=None,
             info=b'ephemeral key',
             backend=default_backend()
         )
-        private_key_bytes = hkdf.derive(ephemeral_id)
+        private_key_bytes = diffie_hellman.derive(ephemeral_id)
         return X25519PrivateKey.from_private_bytes(private_key_bytes)
  
     def generate_ephemeral_id(self):
