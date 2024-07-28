@@ -91,11 +91,10 @@ class Node:
     def broadcast_shares(self):
         while not self.isolated:
             ephemeral_id, private_key = self.generate_ephemeral_id()
-            ephemeral_str = ephemeral_id.hex()
-            self.generated_ephids.add(ephemeral_str)
+            self.generated_ephids.add(ephemeral_id.hex())
             ephemeral_hash = hashlib.sha256(ephemeral_id).hexdigest()
             self.generated_hashes.add(ephemeral_hash)
-            print(f"\033[97m GENERATED EphID \033[0m #{ephemeral_str[:10]}")
+            print(f"\033[97m GENERATED EphID \033[0m #{ephemeral_id.hex()[:10]}")
             shares = self.share_ephemeral_id(ephemeral_id)
             print(self.format_shares(shares))
             for i, share in enumerate(shares, start=1):
@@ -141,10 +140,9 @@ class Node:
                 derived_private_key = self.derive_private_key(ephemeral_bytes)
                 shared_key = derived_private_key.exchange(ephID_public_key)
                 enc_id = hashlib.sha256(shared_key).digest()
-                enc_id_hex = enc_id.hex()
-                print(f"\033[95m COMPUTED \033[0m EncID: {enc_id_hex[:10]}")
-                self.bf_man.add_enc_id(enc_id_hex)
-                print(f"\033[95m ENCODED TO DBF \033[0m Discarding EncID: {enc_id_hex[:10]}")
+                print(f"\033[95m COMPUTED \033[0m EncID: {enc_id.hex()[:10]}")
+                self.bf_man.add_enc_id(enc_id.hex())
+                print(f"\033[95m ENCODED TO DBF \033[0m Discarding EncID: {enc_id.hex()[:10]}")
                 one_bits_indices = [i for i, bit in enumerate(self.bf_man.current_dbf.bit_array) if bit]
                 print(f"\033[95m DBF STATE \033[0m {one_bits_indices}")
             except Exception as e:
