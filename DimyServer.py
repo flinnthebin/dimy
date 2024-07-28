@@ -27,7 +27,7 @@ class BackendServer:
                 print(f"\033[93mTESTING CBF AGAINST QBF DATABASE\033[0m Length: {len(data)} bytes")
                 padded_cbf = self.pad_bloom_filter(data)
                 matched = self.check_cbf(padded_cbf)
-                response = "0\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCHED\033[0m"
+                response = "\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCHED\033[0m"
                 print(f"\033[92mRESPONSE SENT\033[0m Result: {response}")
                 ts_socket.send(response.encode())
         else:
