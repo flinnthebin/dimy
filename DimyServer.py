@@ -30,25 +30,25 @@ class BackendServer:
         client_socket.close()
 
     def check_cbf(self, cbf):
-    cbf_bits = bitarray.bitarray()
-    cbf_bits.frombytes(cbf)
-    cbf_count = cbf_bits.count()
+        cbf_bits = bitarray.bitarray()
+        cbf_bits.frombytes(cbf)
+        cbf_count = cbf_bits.count()
 
-    for qbf in self.received_qbf:
-        qbf_bits = bitarray.bitarray()
-        qbf_bits.frombytes(qbf)
-        qbf_count = qbf_bits.count()
+        for qbf in self.received_qbf:
+            qbf_bits = bitarray.bitarray()
+            qbf_bits.frombytes(qbf)
+            qbf_count = qbf_bits.count()
 
-        # Count the number of matching 1 bits
-        matching_bits = (cbf_bits & qbf_bits).count()
+            # Count the number of matching 1 bits
+            matching_bits = (cbf_bits & qbf_bits).count()
 
-        # Calculate the percentage of matching 1 bits
-        match_percentage = (matching_bits / cbf_count) * 100
+            # Calculate the percentage of matching 1 bits
+            match_percentage = (matching_bits / cbf_count) * 100
 
-        if match_percentage >= 50:
-            return True
+            if match_percentage >= 50:
+                return True
 
-    return False
+        return False
 
     def start(self):
         while True:
