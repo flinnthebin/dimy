@@ -32,8 +32,7 @@ class Node:
         self.generated_hashes = set()
         self.reconstructed_ephids = set()
         self.bf_man = BFMan()
-        self.isolated = False
-        self.isolated_event = threading.Event()
+        self.isolated = threading.Event()
         signal.signal(signal.SIGQUIT, self.handle_signal)
 
     @staticmethod
@@ -90,7 +89,7 @@ class Node:
         return share, ephemeral_hash
 
     def broadcast_shares(self):
-        while not self.isolated:
+        while not self.isolated.is_set():
             ephemeral_id, private_key = self.generate_ephemeral_id()
             self.generated_ephids.add(ephemeral_id.hex())
             ephemeral_hash = hashlib.sha256(ephemeral_id).hexdigest()
@@ -109,7 +108,7 @@ class Node:
                 time.sleep(2)
     
     def listen_for_shares(self):
-        while not self.isolated:
+        while not self.isolated.is_set():
             data, _ = self.sock.recvfrom(1024)
             message = data.decode()
             share, ephemeral_hash = self.parse_message(message)
