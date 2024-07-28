@@ -3,7 +3,7 @@ import time
 from collections import deque
 
 class BFMan:
-    def __init__(self, dbf_duration=90, max_dbfs=2):
+    def __init__(self, dbf_duration=90, max_dbfs=6):
         self.dbf_duration = dbf_duration
         self.max_dbfs = max_dbfs
         self.dbfs = deque()
