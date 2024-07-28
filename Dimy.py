@@ -190,6 +190,7 @@ class Node:
     def handle_signal(self, signum, frame):
         print(f"\033[93mSIGNAL RECEIVED\033[0m Isolating Node")
         self.isolated = True
+        self.stop_event.set()
         cbf = self.bf_man.contact_filter().bit_array.tobytes()
         self.send_cbf_to_backend(cbf)
         print(f"\033[95mCBF SENT\033[0m | Node Isolated")

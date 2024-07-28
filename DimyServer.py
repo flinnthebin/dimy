@@ -54,7 +54,7 @@ class BackendServer:
 
             match_percentage = (matching_bits / cbf_count) * 100
 
-            if match_percentage >= 50:
+            if match_percentage >= 10:
                 return True
 
         return False
