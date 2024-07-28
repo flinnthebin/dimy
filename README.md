@@ -35,7 +35,7 @@ Back-end Server, stores QBFs to check against received CBFs
 - QBFs that are handled through standard TCP socket messaging are 102400 bytes  
 - The back-end uses this packet difference to distinguish a CBF from a QBF  
 - The server pads a QBF to 102400 bytes with 0 bytes for comparison  
-- The comparator only regard 1-bits, with a 10% match indicating a 'close contact' with COVID-19  
+- The comparator only regards 1-bits, with a 10% match indicating a 'close contact' with COVID-19  
 
 ## ThreadSafeSocket
 
