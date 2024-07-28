@@ -1,3 +1,4 @@
+import bitarray
 import socket
 import threading
 from ThreadSafeSocket import ThreadSafeSocket
@@ -39,10 +40,8 @@ class BackendServer:
             qbf_bits.frombytes(qbf)
             qbf_count = qbf_bits.count()
 
-            # Count the number of matching 1 bits
             matching_bits = (cbf_bits & qbf_bits).count()
 
-            # Calculate the percentage of matching 1 bits
             match_percentage = (matching_bits / cbf_count) * 100
 
             if match_percentage >= 50:
