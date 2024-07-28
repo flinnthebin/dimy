@@ -180,7 +180,7 @@ class Node:
             print(f"\033[91m ERROR \033[0m Failed to send CBF: {str(e)}")
 
     def query_filter(self):
-        while not self.isolated:
+        while not self.isolated.is_set():
             self.bf_man.query_filter()
             if self.bf_man.is_qbf_created():
                 qbf = self.bf_man.qbf.bit_array.tobytes()
@@ -189,8 +189,7 @@ class Node:
 
     def handle_signal(self, signum, frame):
         print(f"\033[93mSIGNAL RECEIVED\033[0m Isolating Node")
-        self.isolated = True
-        self.isolated_event.set()
+        self.isolated.set()
         cbf = self.bf_man.contact_filter().bit_array.tobytes()
         self.send_cbf_to_backend(cbf)
         print(f"\033[95mCBF SENT\033[0m | Node Isolated")
