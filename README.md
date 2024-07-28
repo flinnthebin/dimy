@@ -1,6 +1,8 @@
 # dimy
 did i meet you tracing protocol.
 
+![DIMY Protocol](./demo.png)
+
 ## Bloom
 
 Simple Bloom Filter implementation
