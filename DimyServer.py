@@ -19,16 +19,26 @@ class BackendServer:
         status, data = ts_socket.recv()
         if status == ThreadSafeSocket.SocketStatus.OK:
             if len(data) == 102400:
-                print(f"\033[92m QBF RECEIVED \033[0m Length: {len(data)} bytes")
+                print(f"\033[93mQBF RECEIVED\033[0m Length: {len(data)} bytes")
                 self.received_qbf.add(data)
+                print(f"\033[92mQBF ADDED TO CONTACT DATABASE\033[0m")
             else:
-                print(f"\033[92m CBF RECEIVED \033[0m Length: {len(data)} bytes")
-                matched = self.check_cbf(data)
-                response = "MATCHED" if matched else "NOT MATCHED"
+                print(f"\033[93mCBF RECEIVED\033[0m Length: {len(data)} bytes")
+                print(f"\033[93mTESTING CBF AGAINST QBF DATABASE\033[0m Length: {len(data)} bytes")
+                padded_cbf = self.pad_bloom_filter(data)
+                matched = self.check_cbf(padded_cbf)
+                response = "0\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCED\033[0m")
+                printf(f"\033[92mRESPONSE SENT\033[0m Result: {response}")
                 ts_socket.send(response.encode())
         else:
-            print(f"\033[91m RECEIVE FAILED \033[0m Status: {status}")
+            print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
         client_socket.close()
+
+    def pad_bloom_filter(self, bloom_filter_bytes, target_size=102400):
+        if len(bloom_filter_bytes) < target_size:
+            padding_length = target_size - len(bloom_filter_bytes)
+            bloom_filter_bytes += b'\x00' * padding_length
+        return bloom_filter_bytes
 
     def check_cbf(self, cbf):
         cbf_bits = bitarray.bitarray()

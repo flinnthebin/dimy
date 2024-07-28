@@ -13,7 +13,7 @@ class BFMan:
         self.qbf = BloomFilter()
         self.dbf_counter = 1
         self.qbf_created = False
-        print(f"\033[36m DBF CREATED \033[0m (1 of {self.max_dbfs})")
+        print(f"\033[36mDBF CREATED\033[0m (1 of {self.max_dbfs})")
 
     def add_enc_id(self, enc_id):
         current_time = time.time()
@@ -29,7 +29,7 @@ class BFMan:
         self.dbf_counter += 1
         if self.dbf_counter > self.max_dbfs:
             self.dbf_counter = 1
-        print(f"\033[36m DBF CREATED \033[0m ({self.dbf_counter} of {self.max_dbfs})")
+        print(f"\033[36mDBF CREATED\033[0m ({self.dbf_counter} of {self.max_dbfs})")
         self.start_time = time.time()
 
     def contains(self, enc_id):
@@ -41,16 +41,17 @@ class BFMan:
     def query_filter(self):
         current_time = time.time()
         if current_time - self.qbf_start_time >= self.dbf_duration * self.max_dbfs:
-            print(f"\033[93m CREATING QBF \033[0m")
+            print(f"\033[93mCREATING QBF\033[0m")
             self.qbf = BloomFilter()
             for dbf in self.dbfs:
                 for i in range(dbf.size):
                     if dbf.bit_array[i]:
                         self.qbf.bit_array[i] = 1
             self.dbfs.clear()
+            self.dbfs.pad_filter()
             self.qbf_created = True
             self.qbf_start_time = current_time
-            print(f"\033[36m QBF CREATED \033[0m")
+            print(f"\033[36mQBF CREATED\033[0m")
 
     def is_qbf_created(self):
         if self.qbf_created:
@@ -59,7 +60,7 @@ class BFMan:
         return False
 
     def contact_filter(self):
-        print(f"\033[93m CREATING CBF \033[0m")
+        print(f"\033[93mCREATING CBF\033[0m")
         cbf = BloomFilter()
         for dbf in self.dbfs:
             for i in range(dbf.size):
@@ -68,5 +69,6 @@ class BFMan:
         for i in range(self.current_dbf.size):
             if self.current_dbf.bit_array[i]:
                 cbf.bit_array[i] = 1
-        print(f"\033[36m CBF CREATED \033[0m")
+        cbf.pad_filter()
+        print(f"\033[36mCBF CREATED\033[0m")
         return cbf

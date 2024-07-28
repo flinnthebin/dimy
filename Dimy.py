@@ -72,7 +72,7 @@ class Node:
 
     def format_shares(self, shares, num_chars=3):
         formatted_shares = [self.format_share(share, num_chars) for share in shares]
-        return f"\033[97m GENERATED Shares:\033[0m [{', '.join(formatted_shares)}]"
+        return f"\033[97mGENERATED Shares:\033[0m [{', '.join(formatted_shares)}]"
 
     def drop_share(self):
         return secrets.SystemRandom().random() < 0.5
@@ -94,7 +94,7 @@ class Node:
             self.generated_ephids.add(ephemeral_id.hex())
             ephemeral_hash = hashlib.sha256(ephemeral_id).hexdigest()
             self.generated_hashes.add(ephemeral_hash)
-            print(f"\033[97m GENERATED EphID \033[0m #{ephemeral_id.hex()[:10]}")
+            print(f"\033[97mGENERATED EphID\033[0m #{ephemeral_id.hex()[:10]}")
             shares = self.share_ephemeral_id(ephemeral_id)
             print(self.format_shares(shares))
             for i, share in enumerate(shares, start=1):
@@ -102,9 +102,9 @@ class Node:
                 if not self.drop_share():
                     message = f"{share} | Hash: {ephemeral_hash}"
                     self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
-                    print(f"\033[92m BROADCAST \033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
+                    print(f"\033[92mBROADCAST\033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
                 else:
-                    print(f"\033[91m DROPPED \033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
+                    print(f"\033[91mDROPPED\033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
                 time.sleep(2)
     
     def listen_for_shares(self):
@@ -119,9 +119,9 @@ class Node:
             self.received_shares[ephemeral_hash].append(share)
             if ephemeral_hash not in self.generated_hashes:
                 share_count = len(self.received_shares[ephemeral_hash])
-                print(f"\033[93m RECEIVED \033[0m Hash: {ephemeral_hash[:10]} | Shares Received: {share_count}")
+                print(f"\033[93mRECEIVED \033[0mHash: {ephemeral_hash[:10]} | Shares Received: {share_count}")
             if len(self.received_shares[ephemeral_hash]) == self.n:
-                print(f"\033[94m ATTEMPTING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} with {self.n} shares")
+                print(f"\033[94mATTEMPTING RECONSTRUCTION\033[0m Hash: {ephemeral_hash[:10]} with {self.n} shares")
                 self.reconstruction(ephemeral_hash)
 
     def reconstruction(self, ephemeral_hash):
@@ -130,9 +130,9 @@ class Node:
         interpolate = shamirs.interpolate(shares, threshold=self.n)
         ephemeral_bytes = self.string_encode(interpolate)
         re_hash = hashlib.sha256(ephemeral_bytes).hexdigest()
-        print(f"\033[94m VERIFYING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} | Reconstructed Hash: {re_hash[:10]}")
+        print(f"\033[94mVERIFYING RECONSTRUCTION\033[0m Hash: {ephemeral_hash[:10]} | Reconstructed Hash: {re_hash[:10]}")
         if re_hash == ephemeral_hash:
-            print(f"\033[94m RECONSTRUCTED \033[0m EphID: {ephemeral_bytes.hex()[:10]} | Hash: {ephemeral_hash[:10]}")
+            print(f"\033[94mRECONSTRUCTED\033[0m EphID: {ephemeral_bytes.hex()[:10]} | Hash: {ephemeral_hash[:10]}")
             self.reconstructed_ephids.add(ephemeral_hash)
             # Encounter ID
             try:
@@ -140,44 +140,42 @@ class Node:
                 derived_private_key = self.derive_private_key(ephemeral_bytes)
                 shared_key = derived_private_key.exchange(ephID_public_key)
                 enc_id = hashlib.sha256(shared_key).digest()
-                print(f"\033[95m COMPUTED \033[0m EncID: {enc_id.hex()[:10]}")
+                print(f"\033[95mCOMPUTED\033[0m EncID: {enc_id.hex()[:10]}")
                 self.bf_man.add_enc_id(enc_id.hex())
-                print(f"\033[95m ENCODED TO DBF \033[0m Discarding EncID: {enc_id.hex()[:10]}")
+                print(f"\033[95mENCODED TO DBF\033[0m Discarding EncID: {enc_id.hex()[:10]}")
                 one_bits_indices = [i for i, bit in enumerate(self.bf_man.current_dbf.bit_array) if bit]
-                print(f"\033[95m DBF STATE \033[0m {one_bits_indices}")
+                print(f"\033[95mDBF STATE\033[0m {one_bits_indices}")
             except Exception as e:
-                print(f"\033[91m ERROR \033[0m Failed to compute EncID: {str(e)}")
+                print(f"\033[91mERROR\033[0m Failed to compute EncID: {str(e)}")
         else:
-            print(f"\033[91m FAILED \033[0m Hash: {ephemeral_hash[:10]} | \033[91m Hash Mismatch \033[0m")
+            print(f"\033[91mFAILED\033[0m Hash: {ephemeral_hash[:10]} | \033[91m Hash Mismatch \033[0m")
 
     def send_qbf_to_backend(self, qbf):
         try:
-            qbf.pad_filter()
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 status = ts_socket.send(qbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
-                    print(f"\033[95m QBF SENT \033[0m to {self.backend_ip}:{self.backend_port}")
+                    print(f"\033[95mQBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
                 else:
-                    print(f"\033[91m QBF SEND FAILED \033[0m Status: {status}")
+                    print(f"\033[91mQBF SEND FAILED\033[0m Status: {status}")
         except Exception as e:
-            print(f"\033[91m ERROR \033[0m Failed to send QBF: {str(e)}")
+            print(f"\033[91mERROR\033[0m Failed to send QBF: {str(e)}")
 
     def send_cbf_to_backend(self, cbf):
         try:
-            cbf.pad_filter()
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 status = ts_socket.send(cbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
-                    print(f"\033[95m CBF SENT \033[0m to {self.backend_ip}:{self.backend_port}")
+                    print(f"\033[95mCBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
                     status, response = ts_socket.recv()
                     if status == ThreadSafeSocket.SocketStatus.OK:
-                        print(f"\033[95m RESPONSE RECEIVED \033[0m: {response.decode()}")
+                        print(f"\033[95mRESPONSE RECEIVED\033[0m: {response.decode()}")
                     else:
-                        print(f"\033[91m RESPONSE RECEIVE FAILED \033[0m Status: {status}")
+                        print(f"\033[91mRESPONSE RECEIPT FAILED\033[0m Status: {status}")
                 else:
-                    print(f"\033[91m CBF SEND FAILED \033[0m Status: {status}")
+                    print(f"\033[91mCBF SEND FAILED\033[0m Status: {status}")
         except Exception as e:
             print(f"\033[91m ERROR \033[0m Failed to send CBF: {str(e)}")
 
@@ -190,11 +188,11 @@ class Node:
             time.sleep(1)
 
     def handle_signal(self, signum, frame):
-        print(f"\033[93m SIGNAL RECEIVED \033[0m Isolating Node")
+        print(f"\033[93mSIGNAL RECEIVED\033[0m Isolating Node")
         self.isolated = True
         cbf = self.bf_man.contact_filter().bit_array.tobytes()
         self.send_cbf_to_backend(cbf)
-        print(f"\033[95m CBF SENT \033[0m | Node Isolated")
+        print(f"\033[95mCBF SENT\033[0m | Node Isolated")
 
 if __name__ == "__main__":
     node = Node()
