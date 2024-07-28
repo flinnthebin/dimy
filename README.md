@@ -20,3 +20,7 @@ The backend, stores QBFs to check against CBFs
 ## ThreadSafeSocket
 
 ThreadSafe TCP socket, enabling sequential processing of data with no loss due competition on ports
+
+## Attacker
+
+TBC
