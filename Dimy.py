@@ -1,9 +1,12 @@
+from BFMan import BFMan
+from ThreadSafeSocket import ThreadSafeSocket
 import hashlib
-import threading
-import socket
 import secrets
-import time
 import shamirs
+import socket
+import time
+import threading
+import signal
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -11,12 +14,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
 class Node:
-    def __init__(self, udp_broadcast_ip='192.168.0.255', udp_broadcast_port=37020, mersenne_prime=(2**607) - 1):
+    def __init__(self, udp_broadcast_ip='192.168.0.255', udp_broadcast_port=37020, backend_ip = '192.168.0.157',
+                 backend_port = 55000, mersenne_prime=(2**607) - 1):
         self.mersenne_prime = mersenne_prime
         self.n = 3
         self.k = 5
         self.udp_broadcast_ip = udp_broadcast_ip
         self.udp_broadcast_port = udp_broadcast_port
+        self.backend_ip = backend_ip
+        self.backend_port = backend_port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -25,6 +31,9 @@ class Node:
         self.generated_ephids = set()
         self.generated_hashes = set()
         self.reconstructed_ephids = set()
+        self.bf_man = BFMan()
+        self.isolated = False
+        signal.signal(signal.SIGQUIT, self.handle_signal)
 
     @staticmethod
     def string_encode(i):
@@ -80,7 +89,7 @@ class Node:
         return share, ephemeral_hash
 
     def broadcast_shares(self):
-        while True:
+        while not self.isolated:
             ephemeral_id, private_key = self.generate_ephemeral_id()
             ephemeral_str = ephemeral_id.hex()
             self.generated_ephids.add(ephemeral_str)
@@ -100,7 +109,7 @@ class Node:
                 time.sleep(2)
     
     def listen_for_shares(self):
-        while True:
+        while not self.isolated:
             data, _ = self.sock.recvfrom(1024)
             message = data.decode()
             share, ephemeral_hash = self.parse_message(message)
@@ -113,35 +122,84 @@ class Node:
                 share_count = len(self.received_shares[ephemeral_hash])
                 print(f"\033[93m RECEIVED \033[0m Hash: {ephemeral_hash[:10]} | Shares Received: {share_count}")
             if len(self.received_shares[ephemeral_hash]) == self.n:
-                print(f"\033[96m ATTEMPTING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} with {self.n} shares")
+                print(f"\033[94m ATTEMPTING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} with {self.n} shares")
                 self.reconstruction(ephemeral_hash)
 
     def reconstruction(self, ephemeral_hash):
-        # Reconstruct Ephemeral ID
+        # Ephemeral ID
         shares = self.received_shares[ephemeral_hash]
         interpolate = shamirs.interpolate(shares, threshold=self.n)
         ephemeral_bytes = self.string_encode(interpolate)
         re_hash = hashlib.sha256(ephemeral_bytes).hexdigest()
-        print(f"\033[96m VERIFYING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} | Reconstructed Hash: {re_hash[:10]}")
+        print(f"\033[94m VERIFYING RECONSTRUCTION \033[0m Hash: {ephemeral_hash[:10]} | Reconstructed Hash: {re_hash[:10]}")
         if re_hash == ephemeral_hash:
             print(f"\033[94m RECONSTRUCTED \033[0m EphID: {ephemeral_bytes.hex()[:10]} | Hash: {ephemeral_hash[:10]}")
             self.reconstructed_ephids.add(ephemeral_hash)
-            # Compute EncID after reconstructing EphID
+            # Encounter ID
             try:
                 ephID_public_key = X25519PublicKey.from_public_bytes(ephemeral_bytes)
                 derived_private_key = self.derive_private_key(ephemeral_bytes)
                 shared_key = derived_private_key.exchange(ephID_public_key)
-                # Derive EncID from the shared key
                 enc_id = hashlib.sha256(shared_key).digest()
                 enc_id_hex = enc_id.hex()
                 print(f"\033[95m COMPUTED \033[0m EncID: {enc_id_hex[:10]}")
+                self.bf_man.add_enc_id(enc_id_hex)
+                print(f"\033[95m ENCODED TO DBF \033[0m Discarding EncID: {enc_id_hex[:10]}")
+                one_bits_indices = [i for i, bit in enumerate(self.bf_man.current_dbf.bit_array) if bit]
+                print(f"\033[95m DBF STATE \033[0m {one_bits_indices}")
             except Exception as e:
                 print(f"\033[91m ERROR \033[0m Failed to compute EncID: {str(e)}")
         else:
             print(f"\033[91m FAILED \033[0m Hash: {ephemeral_hash[:10]} | \033[91m Hash Mismatch \033[0m")
 
+    def send_qbf_to_backend(self, qbf):
+        try:
+            with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
+                ts_socket = ThreadSafeSocket(sock, timeout=10)
+                status = ts_socket.send(qbf)
+                if status == ThreadSafeSocket.SocketStatus.OK:
+                    print(f"\033[95m QBF SENT \033[0m to {self.backend_ip}:{self.backend_port}")
+                else:
+                    print(f"\033[91m QBF SEND FAILED \033[0m Status: {status}")
+        except Exception as e:
+            print(f"\033[91m ERROR \033[0m Failed to send QBF: {str(e)}")
+
+    def send_cbf_to_backend(self, cbf):
+        try:
+            with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
+                ts_socket = ThreadSafeSocket(sock, timeout=10)
+                status = ts_socket.send(cbf)
+                if status == ThreadSafeSocket.SocketStatus.OK:
+                    print(f"\033[95m CBF SENT \033[0m to {self.backend_ip}:{self.backend_port}")
+                    status, response = ts_socket.recv()
+                    if status == ThreadSafeSocket.SocketStatus.OK:
+                        print(f"\033[95m RESPONSE RECEIVED \033[0m: {response.decode()}")
+                    else:
+                        print(f"\033[91m RESPONSE RECEIVE FAILED \033[0m Status: {status}")
+                else:
+                    print(f"\033[91m CBF SEND FAILED \033[0m Status: {status}")
+        except Exception as e:
+            print(f"\033[91m ERROR \033[0m Failed to send CBF: {str(e)}")
+
+    def query_filter(self):
+        while not self.isolated:
+            self.bf_man.query_filter()
+            if self.bf_man.is_qbf_created():
+                qbf = self.bf_man.qbf.bit_array.tobytes()
+                self.send_qbf_to_backend(qbf)
+            time.sleep(1)
+
+    def handle_signal(self, signum, frame):
+        print(f"\033[93m SIGNAL RECEIVED \033[0m Isolating Node")
+        self.isolated = True
+        cbf = self.bf_man.contact_filter().bit_array.tobytes()
+        self.send_cbf_to_backend(cbf)
+        print(f"\033[95m CBF SENT \033[0m | Node Isolated")
+
 if __name__ == "__main__":
     node = Node()
-    broadcast_thread = threading.Thread(target=node.broadcast_shares)
-    broadcast_thread.start()
+    broadcast = threading.Thread(target=node.broadcast_shares)
+    broadcast.start()
+    query_filter = threading.Thread(target=node.query_filter)
+    query_filter.start()
     node.listen_for_shares()
