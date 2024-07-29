@@ -157,6 +157,14 @@ class Node:
                 status = ts_socket.send(qbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[95mQBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
+                    status, response = ts_socket.recv()
+                    if status == ThreadSafeSocket.SocketStatus.OK:
+                        print(f"\033[95mRESPONSE RECEIVED\033[0m: {response.decode()}")
+                        if response.decode() == "\033[92mMATCHED\033[0m":
+                            self.isolated.set()
+                            print(f"\033[93mCOVID CONTACT CONFIRMED\033[0m Isolating Node")
+                    else:
+                        print(f"\033[91mRESPONSE RECEIPT FAILED\033[0m Status: {status}")
                 else:
                     print(f"\033[91mQBF SEND FAILED\033[0m Status: {status}")
         except Exception as e:
