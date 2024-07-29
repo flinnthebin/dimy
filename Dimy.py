@@ -188,7 +188,7 @@ class Node:
             time.sleep(1)
 
     def handle_signal(self, signum, frame):
-        print(f"\033[93mSIGNAL RECEIVED\033[0m Isolating Node")
+        print(f"\033[93mCOVID CONTACT CONFIRMED\033[0m Isolating Node")
         self.isolated.set()
         cbf = self.bf_man.contact_filter().bit_array.tobytes()
         self.send_cbf_to_backend(cbf)
