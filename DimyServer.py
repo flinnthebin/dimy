@@ -14,36 +14,7 @@ class BackendServer:
         self.server_socket.listen(5)
         self.received_qbf = set()
         print(f"\033[92mSERVER AWAIT\033[0m {self.host}:{self.port}")
-
-    def handle_client(self, client_socket):
-        ts_socket = ThreadSafeSocket(client_socket, timeout=10)
-        status, data = ts_socket.recv()
-        if status == ThreadSafeSocket.SocketStatus.OK:
-            try:
-                print(f"\033[93mRAW DATA RECEIVED\033[0m: {data}")
-                decoded_data = json.loads(data.decode())
-                type_designator = decoded_data['type']
-                bf_data = bytes.fromhex(decoded_data['data'])
-                if type_designator == "QBF":
-                    print(f"\033[93mQBF RECEIVED\033[0m Length: {len(bf_data)} bytes")
-                    self.received_qbf.add(bf_data)
-                    print(f"\033[92mQBF ADDED TO CONTACT DATABASE\033[0m")
-                elif type_designator == "CBF":
-                    print(f"\033[93mCBF RECEIVED\033[0m Length: {len(bf_data)} bytes")
-                    print(f"\033[93mTESTING CBF AGAINST QBF DATABASE\033[0m Length: {len(bf_data)} bytes")
-                    padded_cbf = self.pad_bloom_filter(bf_data)
-                    matched = self.check_cbf(padded_cbf)
-                    response = "\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCHED\033[0m"
-                    print(f"\033[92mRESPONSE SENT\033[0m Result: {response}")
-                    ts_socket.send(response.encode())
-                else:
-                    print(f"\033[91mUNKNOWN TYPE DESIGNATOR\033[0m: {type_designator}")
-            except Exception as e:
-                print(f"\033[91mERROR\033[0m Failed to process data: {str(e)}")
-        else:
-            print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
-        client_socket.close()
-
+                     
     def pad_bloom_filter(self, bloom_filter_bytes, target_size=102400):
         if len(bloom_filter_bytes) < target_size:
             padding_length = target_size - len(bloom_filter_bytes)
@@ -61,14 +32,42 @@ class BackendServer:
             qbf_count = qbf_bits.count()
 
             matching_bits = (cbf_bits & qbf_bits).count()
-
             match_percentage = (matching_bits / cbf_count) * 100
-
             if match_percentage >= 10:
                 return True
 
         return False
 
+    def handle_client(self, client_socket):
+        ts_socket = ThreadSafeSocket(client_socket, timeout=10)
+        status, type_data = ts_socket.recv()
+        if status != ThreadSafeSocket.SocketStatus.OK:
+            print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
+            client_socket.close()
+            return
+        type_designator = type_data.decode()
+        print(f"\033[93mTYPE DESIGNATOR RECEIVED\033[0m: {type_designator}")
+        status, bf_data = ts_socket.recv()
+        if status != ThreadSafeSocket.SocketStatus.OK:
+            print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
+            client_socket.close()
+            return
+        if type_designator == "QBF":
+            print(f"\033[93mQBF RECEIVED\033[0m Length: {len(bf_data)} bytes")
+            self.received_qbf.add(bf_data)
+            print(f"\033[92mQBF ADDED TO CONTACT DATABASE\033[0m")
+        elif type_designator == "CBF":
+            print(f"\033[93mCBF RECEIVED\033[0m Length: {len(bf_data)} bytes")
+            print(f"\033[93mTESTING CBF AGAINST QBF DATABASE\033[0m Length: {len(bf_data)} bytes")
+            padded_cbf = self.pad_bloom_filter(bf_data)
+            matched = self.check_cbf(padded_cbf)
+            response = "\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCHED\033[0m"
+            print(f"\033[92mRESPONSE SENT\033[0m Result: {response}")
+            ts_socket.send(response.encode())
+        else:
+            print(f"\033[91mUNKNOWN TYPE DESIGNATOR\033[0m: {type_designator}")
+        client_socket.close()
+    
     def start(self):
         while True:
             client_socket, addr = self.server_socket.accept()

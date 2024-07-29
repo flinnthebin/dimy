@@ -155,9 +155,12 @@ class Node:
         try:
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
-                data = json.dumps({"type": "QBF", "data": qbf.hex()})
-                print(f"\033[93mSENDING QBF\033[0m: {data}")
-                status = ts_socket.send(data.encode())
+                type_designator = "QBF"
+                status = ts_socket.send(type_designator.encode())
+                if status != ThreadSafeSocket.SocketStatus.OK:
+                    print(f"\033[91mQBF TYPE DESIGNATOR SEND FAILED\033[0m Status: {status}")
+                    return
+                status = ts_socket.send(qbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[95mQBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
                     status, response = ts_socket.recv()
@@ -177,9 +180,12 @@ class Node:
         try:
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
-                data = json.dumps({"type": "CBF", "data": cbf.hex()})
-                print(f"\033[93mSENDING CBF\033[0m: {data}")
-                status = ts_socket.send(data.encode())
+                type_designator = "CBF"
+                status = ts_socket.send(type_designator.encode())
+                if status != ThreadSafeSocket.SocketStatus.OK:
+                    print(f"\033[91mCBF TYPE DESIGNATOR SEND FAILED\033[0m Status: {status}")
+                    return
+                status = ts_socket.send(cbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[95mCBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
                     status, response = ts_socket.recv()
