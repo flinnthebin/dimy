@@ -33,7 +33,7 @@ Did I Meet You Protocol Node
 ## DimyServer
 
 Back-end Server, stores QBFs to check against received CBFs
-- CBFs are triggered by signal interrupt (Ctrl-\\') 
+- CBFs are triggered by signal interrupt (Ctrl-\\) 
 - CBFs and QBFs are preceded by a Type Designator packet
 - The back-end uses this packet Type Designator to distinguish a CBF from a QBF  
 - The server pads a CBF to be the same length as the QBF it compares to
