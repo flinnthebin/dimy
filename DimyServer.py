@@ -1,5 +1,4 @@
 import bitarray
-import json
 import socket
 import threading
 from ThreadSafeSocket import ThreadSafeSocket
@@ -14,10 +13,16 @@ class BackendServer:
         self.server_socket.listen(5)
         self.received_qbf = set()
         print(f"\033[92mSERVER AWAIT\033[0m {self.host}:{self.port}")
-                     
-    def pad_bloom_filter(self, bloom_filter_bytes, target_size=102400):
-        if len(bloom_filter_bytes) < target_size:
-            padding_length = target_size - len(bloom_filter_bytes)
+
+    def get_max_qbf_size(self):
+        if not self.received_qbf:
+            return 0
+        return max(len(qbf) for qbf in self.received_qbf)
+
+    def pad_bloom_filter(self, bloom_filter_bytes):
+        max_qbf_size = self.get_max_qbf_size()
+        if len(bloom_filter_bytes) < max_qbf_size:
+            padding_length = max_qbf_size - len(bloom_filter_bytes)
             bloom_filter_bytes += b'\x00' * padding_length
         return bloom_filter_bytes
 
@@ -25,6 +30,9 @@ class BackendServer:
         cbf_bits = bitarray.bitarray()
         cbf_bits.frombytes(cbf)
         cbf_count = cbf_bits.count()
+        
+        if cbf_count == 0:
+            return False
 
         for qbf in self.received_qbf:
             qbf_bits = bitarray.bitarray()
@@ -45,9 +53,9 @@ class BackendServer:
             print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
             client_socket.close()
             return
-        type_designator = type_data.decode()
+        type_designator = type_data.decode()[:3]
         print(f"\033[93mTYPE DESIGNATOR RECEIVED\033[0m: {type_designator}")
-        status, bf_data = ts_socket.recv()
+        status, bf_data = ts_socket.recv_all()
         if status != ThreadSafeSocket.SocketStatus.OK:
             print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
             client_socket.close()
@@ -67,7 +75,7 @@ class BackendServer:
         else:
             print(f"\033[91mUNKNOWN TYPE DESIGNATOR\033[0m: {type_designator}")
         client_socket.close()
-    
+
     def start(self):
         while True:
             client_socket, addr = self.server_socket.accept()

@@ -156,7 +156,7 @@ class Node:
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 type_designator = "QBF"
-                status = ts_socket.send(type_designator.encode())
+                status = ts_socket.send(type_designator.encode().strip())
                 if status != ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[91mQBF TYPE DESIGNATOR SEND FAILED\033[0m Status: {status}")
                     return
@@ -181,7 +181,7 @@ class Node:
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 type_designator = "CBF"
-                status = ts_socket.send(type_designator.encode())
+                status = ts_socket.send(type_designator.encode().strip())
                 if status != ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[91mCBF TYPE DESIGNATOR SEND FAILED\033[0m Status: {status}")
                     return

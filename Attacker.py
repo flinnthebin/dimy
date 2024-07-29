@@ -27,7 +27,7 @@ class Attacker:
                 time.sleep(0.5)
             self.stop_backend_server()
             print(f"\033[92mDoS ATTACK COMPLETE\033[0m")
-            time.sleep(2)
+            time.sleep(3)
 
     def start_attacker_server(self):
         self.server_socket.bind((self.attacker_host, self.attacker_port))
@@ -63,7 +63,7 @@ def get_backend_pid():
         result = subprocess.run(['ps', 'aux'], stdout=subprocess.PIPE)
         output = result.stdout.decode()
         for line in output.splitlines():
-            if 'DimyServer.py' in line and 'grep' not in line:
+            if 'python3 DimyServer.py' in line and 'grep' not in line:
                 return int(line.split()[1])
     except Exception as e:
         print(f"\033[91mERROR\033[0m Failed to get backend PID: {str(e)}")
