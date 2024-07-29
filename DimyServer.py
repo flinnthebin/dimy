@@ -1,4 +1,5 @@
 import bitarray
+import json
 import socket
 import threading
 from ThreadSafeSocket import ThreadSafeSocket
@@ -18,18 +19,27 @@ class BackendServer:
         ts_socket = ThreadSafeSocket(client_socket, timeout=10)
         status, data = ts_socket.recv()
         if status == ThreadSafeSocket.SocketStatus.OK:
-            if len(data) == 102400:
-                print(f"\033[93mQBF RECEIVED\033[0m Length: {len(data)} bytes")
-                self.received_qbf.add(data)
-                print(f"\033[92mQBF ADDED TO CONTACT DATABASE\033[0m")
-            else:
-                print(f"\033[93mCBF RECEIVED\033[0m Length: {len(data)} bytes")
-                print(f"\033[93mTESTING CBF AGAINST QBF DATABASE\033[0m Length: {len(data)} bytes")
-                padded_cbf = self.pad_bloom_filter(data)
-                matched = self.check_cbf(padded_cbf)
-                response = "\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCHED\033[0m"
-                print(f"\033[92mRESPONSE SENT\033[0m Result: {response}")
-                ts_socket.send(response.encode())
+            try:
+                print(f"\033[93mRAW DATA RECEIVED\033[0m: {data}")
+                decoded_data = json.loads(data.decode())
+                type_designator = decoded_data['type']
+                bf_data = bytes.fromhex(decoded_data['data'])
+                if type_designator == "QBF":
+                    print(f"\033[93mQBF RECEIVED\033[0m Length: {len(bf_data)} bytes")
+                    self.received_qbf.add(bf_data)
+                    print(f"\033[92mQBF ADDED TO CONTACT DATABASE\033[0m")
+                elif type_designator == "CBF":
+                    print(f"\033[93mCBF RECEIVED\033[0m Length: {len(bf_data)} bytes")
+                    print(f"\033[93mTESTING CBF AGAINST QBF DATABASE\033[0m Length: {len(bf_data)} bytes")
+                    padded_cbf = self.pad_bloom_filter(bf_data)
+                    matched = self.check_cbf(padded_cbf)
+                    response = "\033[92mMATCHED\033[0m" if matched else "\033[91mNOT MATCHED\033[0m"
+                    print(f"\033[92mRESPONSE SENT\033[0m Result: {response}")
+                    ts_socket.send(response.encode())
+                else:
+                    print(f"\033[91mUNKNOWN TYPE DESIGNATOR\033[0m: {type_designator}")
+            except Exception as e:
+                print(f"\033[91mERROR\033[0m Failed to process data: {str(e)}")
         else:
             print(f"\033[91mRECEIPT FAILED\033[0m Status: {status}")
         client_socket.close()

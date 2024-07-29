@@ -1,6 +1,7 @@
 from BFMan import BFMan
 from ThreadSafeSocket import ThreadSafeSocket
 import hashlib
+import json
 import secrets
 import shamirs
 import socket
@@ -154,7 +155,9 @@ class Node:
         try:
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
-                status = ts_socket.send(qbf)
+                data = json.dumps({"type": "QBF", "data": qbf.hex()})
+                print(f"\033[93mSENDING QBF\033[0m: {data}")
+                status = ts_socket.send(data.encode())
                 if status == ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[95mQBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
                     status, response = ts_socket.recv()
@@ -174,7 +177,9 @@ class Node:
         try:
             with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
-                status = ts_socket.send(cbf)
+                data = json.dumps({"type": "CBF", "data": cbf.hex()})
+                print(f"\033[93mSENDING CBF\033[0m: {data}")
+                status = ts_socket.send(data.encode())
                 if status == ThreadSafeSocket.SocketStatus.OK:
                     print(f"\033[95mCBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
                     status, response = ts_socket.recv()
@@ -185,7 +190,7 @@ class Node:
                 else:
                     print(f"\033[91mCBF SEND FAILED\033[0m Status: {status}")
         except Exception as e:
-            print(f"\033[91m ERROR \033[0m Failed to send CBF: {str(e)}")
+            print(f"\033[91mERROR\033[0m Failed to send CBF: {str(e)}")
 
     def query_filter(self):
         while not self.isolated.is_set():

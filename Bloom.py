@@ -16,9 +16,5 @@ class BloomFilter:
         for hash in self._hashes(enc_id):
             self.bit_array[hash] = 1
 
-    def pad_filter(self):
-        if len(self.bit_array) < self.size:
-            self.bit_array.extend([0] * (self.size - len(self.bit_array)))
-
     def __contains__(self, enc_id):
         return all(self.bit_array[hash] for hash in self._hashes(enc_id))
