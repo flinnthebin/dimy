@@ -5,6 +5,11 @@ did i meet you tracing protocol.
 
 ![MiTM Attack](./atkdemo.png)
 
+## Requirements
+```sh
+pip install bitarray cryptography shamirs
+```
+
 ## Bloom
 
 Simple Bloom Filter implementation  

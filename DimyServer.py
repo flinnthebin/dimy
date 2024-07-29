@@ -3,8 +3,23 @@ import socket
 import threading
 from ThreadSafeSocket import ThreadSafeSocket
 
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
+SRV_HOST='192.168.0.157'
+SRV_PORT=55000
+
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
 class BackendServer:
-    def __init__(self, host='192.168.0.157', port=55000):
+    def __init__(self, host=SRV_HOST, port=SRV_PORT):
         self.host = host
         self.port = port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

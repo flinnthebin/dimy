@@ -6,14 +6,29 @@ import time
 import subprocess
 from ThreadSafeSocket import ThreadSafeSocket
 
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
+ATK_HOST='192.168.0.157'
+ATK_PORT=55000
+
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
 class Attacker:
-    def __init__(self, attacker_host='192.168.0.157', attacker_port=55000, backend_pid=None):
-        self.attacker_host = attacker_host
-        self.attacker_port = attacker_port
+    def __init__(self, attacker_host=ATK_HOST, attacker_port=ATK_PORT, backend_pid=None):
+        self.host = attacker_host
+        self.port = attacker_port
         self.backend_pid = backend_pid
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        print(f"\033[91mATTACKER INITIALIZED\033[0m {self.attacker_host}:{self.attacker_port}")
+        print(f"\033[91mATTACKER INITIALIZED\033[0m {self.host}:{self.port}")
 
     def stop_backend_server(self):
         if self.backend_pid:
@@ -30,9 +45,9 @@ class Attacker:
             time.sleep(3)
 
     def start_attacker_server(self):
-        self.server_socket.bind((self.attacker_host, self.attacker_port))
+        self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
-        print(f"\033[91mATTACKER AWAIT\033[0m {self.attacker_host}:{self.attacker_port}")
+        print(f"\033[91mATTACKER AWAIT\033[0m {self.host}:{self.port}")
 
     def handle_client(self, client_socket):
         ts_socket = ThreadSafeSocket(client_socket, timeout=10)

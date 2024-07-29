@@ -14,15 +14,32 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
+UDP_HOST='192.168.0.255'
+UDP_PORT=37020
+SRV_HOST='192.168.0.157'
+SRV_PORT=55000
+
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
 class Node:
-    def __init__(self, udp_broadcast_ip='192.168.0.255', udp_broadcast_port=37020, backend_ip = '192.168.0.157',
-                 backend_port = 55000, mersenne_prime=(2**607) - 1):
+    def __init__(self, udp_broadcast_host=UDP_HOST, udp_broadcast_port=UDP_PORT, backend_host=SRV_HOST,
+                 backend_port=SRV_PORT, mersenne_prime=(2**607) - 1):
         self.mersenne_prime = mersenne_prime
         self.n = 3
         self.k = 5
-        self.udp_broadcast_ip = udp_broadcast_ip
+        self.udp_broadcast_host = udp_broadcast_host
         self.udp_broadcast_port = udp_broadcast_port
-        self.backend_ip = backend_ip
+        self.backend_host = backend_host
         self.backend_port = backend_port
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -102,11 +119,11 @@ class Node:
                 formatted_share = self.format_share(share)
                 if not self.drop_share():
                     message = f"{share} | Hash: {ephemeral_hash}"
-                    self.sock.sendto(message.encode(), (self.udp_broadcast_ip, self.udp_broadcast_port))
+                    self.sock.sendto(message.encode(), (self.udp_broadcast_host, self.udp_broadcast_port))
                     print(f"\033[92mBROADCAST\033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
                 else:
                     print(f"\033[91mDROPPED\033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
-                time.sleep(2)
+                time.sleep(3)
     
     def listen_for_shares(self):
         while not self.isolated.is_set():
@@ -153,7 +170,7 @@ class Node:
 
     def send_qbf_to_backend(self, qbf):
         try:
-            with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
+            with socket.create_connection((self.backend_host, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 type_designator = "QBF"
                 status = ts_socket.send(type_designator.encode().strip())
@@ -162,7 +179,7 @@ class Node:
                     return
                 status = ts_socket.send(qbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
-                    print(f"\033[95mQBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
+                    print(f"\033[95mQBF SENT\033[0m to {self.backend_host}:{self.backend_port}")
                     status, response = ts_socket.recv()
                     if status == ThreadSafeSocket.SocketStatus.OK:
                         print(f"\033[95mRESPONSE RECEIVED\033[0m: {response.decode()}")
@@ -176,7 +193,7 @@ class Node:
 
     def send_cbf_to_backend(self, cbf):
         try:
-            with socket.create_connection((self.backend_ip, self.backend_port), timeout=10) as sock:
+            with socket.create_connection((self.backend_host, self.backend_port), timeout=10) as sock:
                 ts_socket = ThreadSafeSocket(sock, timeout=10)
                 type_designator = "CBF"
                 status = ts_socket.send(type_designator.encode().strip())
@@ -185,7 +202,7 @@ class Node:
                     return
                 status = ts_socket.send(cbf)
                 if status == ThreadSafeSocket.SocketStatus.OK:
-                    print(f"\033[95mCBF SENT\033[0m to {self.backend_ip}:{self.backend_port}")
+                    print(f"\033[95mCBF SENT\033[0m to {self.backend_host}:{self.backend_port}")
                     status, response = ts_socket.recv()
                     if status == ThreadSafeSocket.SocketStatus.OK:
                         print(f"\033[95mRESPONSE RECEIVED\033[0m: {response.decode()}")
