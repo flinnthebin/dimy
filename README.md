@@ -33,10 +33,10 @@ Did I Meet You Protocol Node
 ## DimyServer
 
 Back-end Server, stores QBFs to check against received CBFs
-- Due to the way CBFs are triggered using a signal interrupt, CBFs are 99840 bytes  
-- QBFs that are handled through standard TCP socket messaging are 102400 bytes  
-- The back-end uses this packet difference to distinguish a CBF from a QBF  
-- The server pads a QBF to 102400 bytes with 0 bytes for comparison  
+- CBFs are triggered by signal interrupt (Ctrl-\) 
+- CBFs and QBFs are preceded by a Type Designator packet
+- The back-end uses this packet Type Designator to distinguish a CBF from a QBF  
+- The server pads a CBF to be the same length as the QBF it compares to
 - The comparator only regards 1-bits, with a 10% match indicating a 'close contact' with COVID-19  
 
 ## ThreadSafeSocket
