@@ -2,8 +2,23 @@ from Bloom import BloomFilter
 import time
 from collections import deque
 
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
+DBF_TIME=90
+DBF_MAX=6
+
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
 class BFMan:
-    def __init__(self, dbf_duration=90, max_dbfs=6):
+    def __init__(self, dbf_duration=DBF_TIME, max_dbfs=DBF_MAX):
         self.dbf_duration = dbf_duration
         self.max_dbfs = max_dbfs
         self.dbfs = deque()

@@ -1,8 +1,23 @@
 import bitarray
 import hashlib
 
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
+BF_SIZE=100*1024*8
+HASH_NUM=3
+
+#####################
+#                   #
+#      CONFIG       #
+#                   #
+#####################
+
 class BloomFilter:
-    def __init__(self, size=100 * 1024 * 8, num_hashes=3):
+    def __init__(self, size=BF_SIZE, num_hashes=HASH_NUM):
         self.size = size
         self.num_hashes = num_hashes
         self.bit_array = bitarray.bitarray(size)
