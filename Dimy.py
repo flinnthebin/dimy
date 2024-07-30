@@ -24,6 +24,10 @@ UDP_HOST='192.168.0.255'
 UDP_PORT=37020
 SRV_HOST='192.168.0.157'
 SRV_PORT=55000
+BRATE=3
+N=3
+K=5
+MPRIME=(2**607)-1
 
 #####################
 #                   #
@@ -33,10 +37,10 @@ SRV_PORT=55000
 
 class Node:
     def __init__(self, udp_broadcast_host=UDP_HOST, udp_broadcast_port=UDP_PORT, backend_host=SRV_HOST,
-                 backend_port=SRV_PORT, mersenne_prime=(2**607) - 1):
+                 backend_port=SRV_PORT, mersenne_prime=MPRIME):
         self.mersenne_prime = mersenne_prime
-        self.n = 3
-        self.k = 5
+        self.n = N
+        self.k = K
         self.udp_broadcast_host = udp_broadcast_host
         self.udp_broadcast_port = udp_broadcast_port
         self.backend_host = backend_host
@@ -123,7 +127,7 @@ class Node:
                     print(f"\033[92mBROADCAST\033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
                 else:
                     print(f"\033[91mDROPPED\033[0m Hash: {ephemeral_hash[:10]} | Share: {formatted_share}")
-                time.sleep(3)
+                time.sleep(BRATE)
     
     def listen_for_shares(self):
         while not self.isolated.is_set():
